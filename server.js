@@ -1,16 +1,21 @@
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
-const ExcelJS = require('exceljs');  // Adicione esta linha no início do arquivo
+const ExcelJS = require('exceljs');
 require('dotenv').config();
 
 // Cria a aplicação Express
 const app = express();
 
-// Configura middlewares
-app.use(cors());
-app.use(express.json());
+// Configuração do CORS (APENAS UMA VEZ)
+const corsOptions = {
+  origin: ['http://localhost:3000', 'https://query-equipamento.vercel.app/'],
+  methods: ['GET', 'POST']
+};
+app.use(cors(corsOptions)); // Remova a linha app.use(cors()) adicional
 
+// Outros middlewares
+app.use(express.json());
 
 // Configuração do banco de dados
 const config = {
