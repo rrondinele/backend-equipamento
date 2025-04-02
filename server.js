@@ -67,66 +67,89 @@ app.get('/api/tables', async (req, res) => {
   }
 });
 
-// Rota para consulta específica de equipamentos
+
+// Rota para consulta específica de equipamentos - Versão Corrigida
 app.get('/api/equipamentos', async (req, res) => {
-    try {
-      const { dataInicial, dataFinal, equipamento } = req.query;
-      
-      const pool = await sql.connect(config);
-      
-      let query = `
-            SELECT TOP 20 
+  try {
+    const { dataInicial, dataFinal, equipamento } = req.query;
+    
+    const pool = await sql.connect(config);
+    
+    // Query corrigida com sintaxe válida
+    let query = `
+          SELECT TOP 20 
             [Instalação],
             [Nota],
             [Cliente],
             [Texto breve para o code],
             [Alavanca],
-            [Data Conclusão],
+            CONVERT(VARCHAR, [Data Conclusão], 120) AS [Data Conclusão],
             [Equipamento Removido],
             [Status Equip. Removido],
             [Equipamento Instalado],
-            Status Equip. Instalado
-            FROM [dbo].[vw_equipe_removido]
-            WHERE 1=1
-      `;
-  
-      // Filtro por datas
-      if (dataInicial && dataFinal) {
-        query += ` AND [Data Conclusão] BETWEEN @dataInicial AND @dataFinal`;
-      }
-  
-    // Filtro por equipamento (suporta múltiplos valores separados por vírgula)
-    if (equipamento) {
-        const equipamentos = equipamento.split(',').map(e => e.trim());
-        if (equipamentos.length === 1) {
-          query += ` AND [Equipamento Removido] = @equipamento`;
-        } else {
-          query += ` AND [Equipamento Removido] IN (${equipamentos.map(e => `'${e}'`).join(',')})`;
-        }
-      }
-  
-      query += ` ORDER BY [Data Conclusão] DESC`;
-  
-      const request = pool.request();
-      if (dataInicial && dataFinal) {
-        request.input('dataInicial', sql.Date, dataInicial);
-        request.input('dataFinal', sql.Date, dataFinal);
-      }
-      if (equipamento && equipamento.split(',').length === 1) {
-        request.input('equipamento', sql.NVarChar, equipamento.trim());
-      }
-  
-      const result = await request.query(query);
-      res.json(result.recordset);
-      
-    } catch (err) {
-      console.error('Erro na consulta:', err);
-      res.status(500).json({ 
-        error: 'Erro ao consultar equipamentos',
-        details: err.message 
-      });
+            [Status Equip. Instalado]
+          FROM dbo.vw_equipe_removido  /* Removidos os colchetes extras */
+          WHERE 1=1
+    `;
+
+    // Filtro por datas
+    if (dataInicial && dataFinal) {
+      query += ` AND [Data Conclusão] BETWEEN @dataInicial AND @dataFinal`;
     }
-  });
+
+    // Filtro por equipamento
+    if (equipamento) {
+      const equipamentos = equipamento.split(',').map(e => e.trim());
+      if (equipamentos.length === 1) {
+        query += ` AND [Equipamento Removido] = @equipamento`;
+      } else {
+        // Versão mais segura usando parâmetros
+        const paramsList = equipamentos.map((_, i) => `@equip${i}`).join(',');
+        query += ` AND [Equipamento Removido] IN (${paramsList})`;
+      }
+    }
+
+    query += ` ORDER BY [Data Conclusão] DESC`;
+
+    const request = pool.request();
+    
+    // Adiciona parâmetros de data
+    if (dataInicial && dataFinal) {
+      request.input('dataInicial', sql.Date, dataInicial);
+      request.input('dataFinal', sql.Date, dataFinal);
+    }
+    
+    // Adiciona parâmetros de equipamento
+    if (equipamento) {
+      const equipamentos = equipamento.split(',').map(e => e.trim());
+      if (equipamentos.length === 1) {
+        request.input('equipamento', sql.NVarChar, equipamentos[0]);
+      } else {
+        equipamentos.forEach((e, i) => {
+          request.input(`equip${i}`, sql.NVarChar, e);
+        });
+      }
+    }
+
+    console.log('Executando query:', query); // Log para diagnóstico
+    const result = await request.query(query);
+    
+    res.json(result.recordset);
+    
+  } catch (err) {
+    console.error('Erro completo na consulta:', {
+      message: err.message,
+      stack: err.stack,
+      originalError: err.originalError,
+      query: req.query
+    });
+    
+    res.status(500).json({ 
+      error: 'Erro ao consultar equipamentos',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+});
   
 // Rota para exportar para Excel (todos os registros)
 // Rota para exportar para Excel com filtros aplicados
@@ -134,11 +157,9 @@ app.get('/api/equipamentos/export', async (req, res) => {
     try {
       const { dataInicial, dataFinal, equipamento } = req.query;
       
-      // Conexão com o banco de dados
       const pool = await sql.connect(config);
-      const request = pool.request(); // Inicializa o request aqui
-  
-      // Query base
+      const request = pool.request();
+
       let query = `
         SELECT 
           [Instalação],
@@ -146,11 +167,11 @@ app.get('/api/equipamentos/export', async (req, res) => {
           [Cliente],
           [Texto breve para o code],
           [Alavanca],
-          [Data Conclusão],
+          CONVERT(VARCHAR, [Data Conclusão], 120) AS [Data Conclusão],
           [Equipamento Removido],
           [Status Equip. Removido],
           [Equipamento Instalado],
-          Status Equip. Instalado
+          [Status Equip. Instalado]
         FROM [dbo].[vw_equipe_removido]
         WHERE 1=1
       `;
