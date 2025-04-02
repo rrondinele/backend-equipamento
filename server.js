@@ -85,10 +85,14 @@ app.get('/api/equipamentos', async (req, res) => {
             [Alavanca],
             CONVERT(VARCHAR, [Data Conclusão], 120) AS [Data Conclusão],
             [Equipamento Removido],
+            [Material Removido],
+            [Descrição Mat. Removido],
             [Status Equip. Removido],
             [Equipamento Instalado],
+            [Material Instalado],
+            [Descrição Mat. Instalado],
             [Status Equip. Instalado]
-          FROM dbo.vw_equipe_removido  /* Removidos os colchetes extras */
+          FROM dbo.vw_equipe_removido  
           WHERE 1=1
     `;
 
@@ -162,16 +166,20 @@ app.get('/api/equipamentos/export', async (req, res) => {
 
       let query = `
         SELECT 
-          [Instalação],
-          [Nota],
-          [Cliente],
-          [Texto breve para o code],
-          [Alavanca],
-          CONVERT(VARCHAR, [Data Conclusão], 120) AS [Data Conclusão],
-          [Equipamento Removido],
-          [Status Equip. Removido],
-          [Equipamento Instalado],
-          [Status Equip. Instalado]
+            [Instalação],
+            [Nota],
+            [Cliente],
+            [Texto breve para o code],
+            [Alavanca],
+            CONVERT(VARCHAR, [Data Conclusão], 120) AS [Data Conclusão],
+            [Equipamento Removido],
+            [Material Removido],
+            [Descrição Mat. Removido],
+            [Status Equip. Removido],
+            [Equipamento Instalado],
+            [Material Instalado],
+            [Descrição Mat. Instalado],
+            [Status Equip. Instalado]
         FROM [dbo].[vw_equipe_removido]
         WHERE 1=1
       `;
@@ -241,8 +249,12 @@ app.get('/api/equipamentos/export', async (req, res) => {
           style: { numFmt: 'dd/mm/yyyy' } 
         },
         { header: 'Equipamento Removido', key: 'Equipamento Removido', width: 20 },
+        { header: 'Material Removido', key: 'Material Removido', width: 20 },
+        { header: 'Descrição Mat. Removido', key: 'Descrição Mat. Removido', width: 20 },
         { header: 'Status Equip. Removido', key: 'Status Equip. Removido', width: 20 },
         { header: 'Equipamento Instalado', key: 'Equipamento Instalado', width: 20 },
+        { header: 'Material Instalado', key: 'Material Instalado', width: 20 },
+        { header: 'Descrição Mat. Instalado', key: 'Descrição Mat. Instalado', width: 20 },
         { header: 'Status Equip. Instalado', key: 'Status Equip. Instalado', width: 20 },
       ];
       
