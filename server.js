@@ -220,7 +220,9 @@ app.get('/api/equipamentos/export', async (req, res) => {
           style: { numFmt: 'dd/mm/yyyy' } 
         },
         { header: 'Equipamento Removido', key: 'Equipamento Removido', width: 20 },
-        { header: 'Equipamento Instalado', key: 'Equipamento Instalado', width: 20 }
+        { header: 'Status Equip. Removido', key: 'Status Equip. Removido', width: 20 },
+        { header: 'Equipamento Instalado', key: 'Equipamento Instalado', width: 20 },
+        { header: 'Status Equip. Instalado', key: 'Status Equip. Instalado', width: 20 },
       ];
       
       // Adiciona os dados
