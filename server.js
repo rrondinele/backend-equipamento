@@ -76,14 +76,16 @@ app.get('/api/equipamentos', async (req, res) => {
       
       let query = `
             SELECT TOP 20 
-                 [Instalação]
-                ,[Nota]
-                ,[Cliente]
-                ,[Texto breve para o code]
-                ,[Alavanca]
-                ,[Data Conclusão]
-                ,[Equipamento Removido]
-                ,[Equipamento Instalado]
+            [Instalação],
+            [Nota],
+            [Cliente],
+            [Texto breve para o code],
+            [Alavanca],
+            [Data Conclusão],
+            [Equipamento Removido],
+            [Status Equip. Removido],
+            [Equipamento Instalado],
+            Status Equip. Instalado
             FROM [dbo].[vw_equipe_removido]
             WHERE 1=1
       `;
@@ -146,7 +148,9 @@ app.get('/api/equipamentos/export', async (req, res) => {
           [Alavanca],
           [Data Conclusão],
           [Equipamento Removido],
-          [Equipamento Instalado]
+          [Status Equip. Removido],
+          [Equipamento Instalado],
+          Status Equip. Instalado
         FROM [dbo].[vw_equipe_removido]
         WHERE 1=1
       `;
