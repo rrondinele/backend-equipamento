@@ -1,11 +1,13 @@
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
+const mssql = require('mssql');
 const ExcelJS = require('exceljs');
 require('dotenv').config();
 
 // Cria a aplicação Express
 const app = express();
+const port = process.env.PORT || 3001;
 
 const corsOptions = {
     origin: [
@@ -154,8 +156,39 @@ app.get('/api/equipamentos', async (req, res) => {
     });
   }
 });
+
+// Rota para contar equipamentos com filtros
+app.get('/api/equipamentos/count', async (req, res) => {
+  try {
+    await mssql.connect(dbConfig);
+
+    const { equipamento, dataInicial, dataFinal } = req.query;
+    const conditions = [];
+
+    if (equipamento) {
+      const equipamentos = equipamento.split(',').map(e => `'${e.trim()}'`).join(',');
+      conditions.push(`[Equipamento Removido] IN (${equipamentos})`);
+    }
+
+    if (dataInicial && dataFinal) {
+      conditions.push(`[Data Conclusão] BETWEEN '${dataInicial}' AND '${dataFinal}'`);
+    }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const query = `SELECT COUNT(*) AS count FROM [dbo].[equipamentos] ${whereClause}`;
+    const result = await mssql.query(query);
+    res.json({ count: result.recordset[0].count });
+  } catch (err) {
+    console.error('Erro ao buscar contagem:', err);
+    res.status(500).json({ error: 'Erro ao buscar contagem' });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`Servidor rodando em http://localhost:${port}`);
+});
   
-// Rota para exportar para Excel (todos os registros)
 // Rota para exportar para Excel com filtros aplicados
 app.get('/api/equipamentos/export', async (req, res) => {
     try {
