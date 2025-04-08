@@ -139,7 +139,7 @@ app.get('/api/equipamentos', async (req, res) => {
 
 app.get('/api/equipamentos/count', async (req, res) => {
   try {
-    const { dataInicial, dataFinal, equipamento } = req.query;
+    const { dataInicial, dataFinal, equipamento, nota } = req.query;
     const pool = await sql.connect(config);
     let query = `SELECT COUNT(*) AS count FROM dbo.vw_equipe_removido WHERE 1=1`;
 
@@ -157,6 +157,16 @@ app.get('/api/equipamentos/count', async (req, res) => {
       }
     }
 
+    if (nota) {
+      const notas = nota.split(',').map(n => n.trim());
+      if (notas.length === 1) {
+        query += ` AND [Nota] = @nota`;
+      } else {
+        const notaParams = notas.map((_, i) => `@nota${i}`).join(',');
+        query += ` AND [Nota] IN (${notaParams})`;
+      }
+    }
+
     const request = pool.request();
 
     if (dataInicial && dataFinal) {
@@ -171,6 +181,17 @@ app.get('/api/equipamentos/count', async (req, res) => {
       } else {
         equipamentos.forEach((e, i) => {
           request.input(`equip${i}`, sql.NVarChar, e);
+        });
+      }
+    }
+
+    if (nota) {
+      const notas = nota.split(',').map(n => n.trim());
+      if (notas.length === 1) {
+        request.input('nota', sql.NVarChar, notas[0]);
+      } else {
+        notas.forEach((n, i) => {
+          request.input(`nota${i}`, sql.NVarChar, n);
         });
       }
     }
