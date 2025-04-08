@@ -1,17 +1,14 @@
+// server.js otimizado
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
-const ExcelJS = require('exceljs');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3001;
 
 const corsOptions = {
-  origin: [
-    'http://localhost:3000',
-    'https://query-equipamento.vercel.app'
-  ],
+  origin: ['http://localhost:3000', 'https://query-equipamento.vercel.app'],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -31,15 +28,31 @@ const config = {
   }
 };
 
-app.get('/', (req, res) => {
-  res.send('Backend está funcionando!');
-});
+const aplicarFiltros = (query, params, filtros, campos) => {
+  campos.forEach(({ nome, coluna }) => {
+    const valor = filtros[nome];
+    if (valor) {
+      const lista = valor.split(',').map(v => v.trim());
+      if (lista.length === 1) {
+        query.sql += ` AND [${coluna}] = @${nome}`;
+        query.inputs.push({ key: nome, value: lista[0] });
+      } else {
+        const keys = lista.map((_, i) => `@${nome}${i}`).join(',');
+        query.sql += ` AND [${coluna}] IN (${keys})`;
+        lista.forEach((v, i) => {
+          query.inputs.push({ key: `${nome}${i}`, value: v });
+        });
+      }
+    }
+  });
+};
+
+app.get('/', (req, res) => res.send('Backend está funcionando!'));
 
 app.get('/api/data/:tableName', async (req, res) => {
   try {
     const pool = await sql.connect(config);
-    const result = await pool.request()
-      .query(`SELECT TOP 100 * FROM ${req.params.tableName}`);
+    const result = await pool.request().query(`SELECT TOP 100 * FROM ${req.params.tableName}`);
     res.json(result.recordset);
   } catch (err) {
     console.error('Erro ao consultar o banco de dados:', err);
@@ -59,78 +72,44 @@ app.get('/api/tables', async (req, res) => {
   }
 });
 
-app.get('/api/equipamentos', async (req, res) => {
-  try {
-    const { dataInicial, dataFinal, equipamento, nota } = req.query;
-    const pool = await sql.connect(config);
-    let query = `
+const consultarEquipamentos = async (filtros, isCount = false) => {
+  const pool = await sql.connect(config);
+  const query = {
+    sql: isCount ? 'SELECT COUNT(*) AS count FROM dbo.vw_equipe_removido WHERE 1=1' : `
       SELECT TOP 20 
         [Instalação], [Nota], [Cliente], [Texto breve para o code],
         [Alavanca], CONVERT(VARCHAR, [Data Conclusão], 120) AS [Data Conclusão],
         [Equipamento Removido], [Material Removido], [Descrição Mat. Removido],
         [Status Equip. Removido], [Equipamento Instalado], [Material Instalado],
         [Descrição Mat. Instalado], [Status Equip. Instalado]
-      FROM dbo.vw_equipe_removido
-      WHERE 1=1
-    `;
+      FROM dbo.vw_equipe_removido WHERE 1=1`,
+    inputs: []
+  };
 
-    if (dataInicial && dataFinal) {
-      query += ` AND [Data Conclusão] BETWEEN @dataInicial AND @dataFinal`;
-    }
+  if (filtros.dataInicial && filtros.dataFinal) {
+    query.sql += ' AND [Data Conclusão] BETWEEN @dataInicial AND @dataFinal';
+    query.inputs.push({ key: 'dataInicial', value: filtros.dataInicial, type: sql.Date });
+    query.inputs.push({ key: 'dataFinal', value: filtros.dataFinal, type: sql.Date });
+  }
 
-    if (equipamento) {
-      const equipamentos = equipamento.split(',').map(e => e.trim());
-      if (equipamentos.length === 1) {
-        query += ` AND [Equipamento Removido] = @equipamento`;
-      } else {
-        const paramsList = equipamentos.map((_, i) => `@equip${i}`).join(',');
-        query += ` AND [Equipamento Removido] IN (${paramsList})`;
-      }
-    }
+  aplicarFiltros(query, filtros, filtros, [
+    { nome: 'equipamento', coluna: 'Equipamento Removido' },
+    { nome: 'nota', coluna: 'Nota' }
+  ]);
 
-    if (nota) {
-      const notas = nota.split(',').map(n => n.trim());
-      if (notas.length === 1) {
-        query += ` AND [Nota] = @nota`;
-      } else {
-        const notaParams = notas.map((_, i) => `@nota${i}`).join(',');
-        query += ` AND [Nota] IN (${notaParams})`;
-      }
-    }
-   
+  const request = pool.request();
+  query.inputs.forEach(({ key, value, type }) => {
+    request.input(key, type || sql.NVarChar, value);
+  });
 
-    query += ` ORDER BY [Data Conclusão] DESC`;
-    const request = pool.request();
+  const result = await request.query(query.sql);
+  return result.recordset;
+};
 
-    if (dataInicial && dataFinal) {
-      request.input('dataInicial', sql.Date, dataInicial);
-      request.input('dataFinal', sql.Date, dataFinal);
-    }
-
-    if (equipamento) {
-      const equipamentos = equipamento.split(',').map(e => e.trim());
-      if (equipamentos.length === 1) {
-        request.input('equipamento', sql.NVarChar, equipamentos[0]);
-      } else {
-        equipamentos.forEach((e, i) => {
-          request.input(`equip${i}`, sql.NVarChar, e);
-        });
-      }
-    }
-
-    if (nota) {
-      const notas = nota.split(',').map(n => n.trim());
-      if (notas.length === 1) {
-        request.input('nota', sql.NVarChar, notas[0]);
-      } else {
-        notas.forEach((n, i) => {
-          request.input(`nota${i}`, sql.NVarChar, n);
-        });
-      }
-    }    
-
-    const result = await request.query(query);
-    res.json(result.recordset);
+app.get('/api/equipamentos', async (req, res) => {
+  try {
+    const data = await consultarEquipamentos(req.query, false);
+    res.json(data);
   } catch (err) {
     console.error('Erro completo na consulta:', err);
     res.status(500).json({ error: 'Erro ao consultar equipamentos' });
@@ -139,72 +118,23 @@ app.get('/api/equipamentos', async (req, res) => {
 
 app.get('/api/equipamentos/count', async (req, res) => {
   try {
-    const { dataInicial, dataFinal, equipamento, nota } = req.query;
-    const pool = await sql.connect(config);
-    let query = `SELECT COUNT(*) AS count FROM dbo.vw_equipe_removido WHERE 1=1`;
-
-    if (dataInicial && dataFinal) {
-      query += ` AND [Data Conclusão] BETWEEN @dataInicial AND @dataFinal`;
-    }
-
-    if (equipamento) {
-      const equipamentos = equipamento.split(',').map(e => e.trim());
-      if (equipamentos.length === 1) {
-        query += ` AND [Equipamento Removido] = @equipamento`;
-      } else {
-        const paramsList = equipamentos.map((_, i) => `@equip${i}`).join(',');
-        query += ` AND [Equipamento Removido] IN (${paramsList})`;
-      }
-    }
-
-    if (nota) {
-      const notas = nota.split(',').map(n => n.trim());
-      if (notas.length === 1) {
-        query += ` AND [Nota] = @nota`;
-      } else {
-        const notaParams = notas.map((_, i) => `@nota${i}`).join(',');
-        query += ` AND [Nota] IN (${notaParams})`;
-      }
-    }
-
-    const request = pool.request();
-
-    if (dataInicial && dataFinal) {
-      request.input('dataInicial', sql.Date, dataInicial);
-      request.input('dataFinal', sql.Date, dataFinal);
-    }
-
-    if (equipamento) {
-      const equipamentos = equipamento.split(',').map(e => e.trim());
-      if (equipamentos.length === 1) {
-        request.input('equipamento', sql.NVarChar, equipamentos[0]);
-      } else {
-        equipamentos.forEach((e, i) => {
-          request.input(`equip${i}`, sql.NVarChar, e);
-        });
-      }
-    }
-
-    if (nota) {
-      const notas = nota.split(',').map(n => n.trim());
-      if (notas.length === 1) {
-        request.input('nota', sql.NVarChar, notas[0]);
-      } else {
-        notas.forEach((n, i) => {
-          request.input(`nota${i}`, sql.NVarChar, n);
-        });
-      }
-    }
-
-    const result = await request.query(query);
-    res.json({ count: result.recordset[0].count });
+    const data = await consultarEquipamentos(req.query, true);
+    res.json({ count: data[0]?.count || 0 });
   } catch (err) {
     console.error('Erro ao buscar contagem:', err);
     res.status(500).json({ error: 'Erro ao buscar contagem' });
   }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+app.get('/api/equipamentos/ultima-data', async (req, res) => {
+  try {
+    const pool = await sql.connect(config);
+    const result = await pool.request().query('SELECT MAX([Data Conclusão]) AS ultimaData FROM dbo.vw_equipe_removido');
+    res.json({ ultimaData: result.recordset[0].ultimaData });
+  } catch (err) {
+    console.error('Erro ao obter última data:', err);
+    res.status(500).json({ error: 'Erro ao obter última data' });
+  }
 });
+
+app.listen(port, () => console.log(`Servidor rodando na porta ${port}`));
