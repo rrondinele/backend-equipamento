@@ -2,7 +2,7 @@
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
-const XLSX = require("xlsx");
+const XLSX = require('xlsx');
 require('dotenv').config();
 
 const app = express();
@@ -25,11 +25,13 @@ const config = {
   port: parseInt(process.env.DB_PORT),
   options: {
     encrypt: true,
-    trustServerCertificate: false
-  }
+    trustServerCertificate: true,
+  },
+  connectionTimeout: 30000,
+  requestTimeout: 30000
 };
 
-const aplicarFiltros = (query, params, filtros, campos) => {
+const aplicarFiltros = (query, filtros, campos) => {
   campos.forEach(({ nome, coluna }) => {
     const valor = filtros[nome];
     if (valor) {
@@ -76,14 +78,13 @@ app.get('/api/tables', async (req, res) => {
 const consultarEquipamentos = async (filtros, isCount = false) => {
   const pool = await sql.connect(config);
   const query = {
-    sql: isCount ? 'SELECT COUNT(*) AS count FROM dbo.vw_equipe_removido WHERE 1=1' : `
-      SELECT TOP 20 
-        [Instalação], [Nota], [Cliente], [Texto breve para o code],
-        [Alavanca], CONVERT(VARCHAR, [Data Conclusão], 120) AS [Data Conclusão],
-        [Equipamento Removido], [Material Removido], [Descrição Mat. Removido],
-        [Status Equip. Removido], [Equipamento Instalado], [Material Instalado],
-        [Descrição Mat. Instalado], [Status Equip. Instalado]
-      FROM dbo.vw_equipe_removido WHERE 1=1`,
+    sql: isCount ?
+      'SELECT COUNT(*) AS count FROM dbo.vw_equipe_removido WHERE 1=1' :
+      'SELECT [Instalação], [Nota], [Cliente], [Texto breve para o code], [Alavanca], ' +
+      'CONVERT(VARCHAR, [Data Conclusão], 120) AS [Data Conclusão], ' +
+      '[Equipamento Removido], [Material Removido], [Descrição Mat. Removido], [Status Equip. Removido], ' +
+      '[Equipamento Instalado], [Material Instalado], [Descrição Mat. Instalado], [Status Equip. Instalado] ' +
+      'FROM dbo.vw_equipe_removido WHERE 1=1',
     inputs: []
   };
 
@@ -93,7 +94,7 @@ const consultarEquipamentos = async (filtros, isCount = false) => {
     query.inputs.push({ key: 'dataFinal', value: filtros.dataFinal, type: sql.Date });
   }
 
-  aplicarFiltros(query, filtros, filtros, [
+  aplicarFiltros(query, filtros, [
     { nome: 'equipamento', coluna: 'Equipamento Removido' },
     { nome: 'nota', coluna: 'Nota' }
   ]);
@@ -140,28 +141,22 @@ app.get('/api/equipamentos/ultima-data', async (req, res) => {
 
 app.get('/api/equipamentos/export', async (req, res) => {
   try {
-    // Buscar os dados já filtrados
     const data = await consultarEquipamentos(req.query, false);
 
-    // Criar a planilha
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
 
-    // Converter para buffer
     const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "buffer" });
 
-    // Cabeçalhos para download
     res.setHeader("Content-Disposition", "attachment; filename=exportacao.xlsx");
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
-    // Enviar o arquivo
-    return res.send(buffer);
+    res.send(buffer);
   } catch (error) {
     console.error("Erro ao exportar:", error);
     res.status(500).json({ error: "Erro ao exportar dados" });
   }
 });
-
 
 app.listen(port, () => console.log(`Servidor rodando na porta ${port}`));
