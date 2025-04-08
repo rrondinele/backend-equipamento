@@ -61,7 +61,7 @@ app.get('/api/tables', async (req, res) => {
 
 app.get('/api/equipamentos', async (req, res) => {
   try {
-    const { dataInicial, dataFinal, equipamento } = req.query;
+    const { dataInicial, dataFinal, equipamento, nota } = req.query;
     const pool = await sql.connect(config);
     let query = `
       SELECT TOP 20 
@@ -88,6 +88,17 @@ app.get('/api/equipamentos', async (req, res) => {
       }
     }
 
+    if (nota) {
+      const notas = nota.split(',').map(n => n.trim());
+      if (notas.length === 1) {
+        query += ` AND [Nota] = @nota`;
+      } else {
+        const notaParams = notas.map((_, i) => `@nota${i}`).join(',');
+        query += ` AND [Nota] IN (${notaParams})`;
+      }
+    }
+   
+
     query += ` ORDER BY [Data Conclusão] DESC`;
     const request = pool.request();
 
@@ -106,6 +117,17 @@ app.get('/api/equipamentos', async (req, res) => {
         });
       }
     }
+
+    if (nota) {
+      const notas = nota.split(',').map(n => n.trim());
+      if (notas.length === 1) {
+        request.input('nota', sql.NVarChar, notas[0]);
+      } else {
+        notas.forEach((n, i) => {
+          request.input(`nota${i}`, sql.NVarChar, n);
+        });
+      }
+    }    
 
     const result = await request.query(query);
     res.json(result.recordset);
