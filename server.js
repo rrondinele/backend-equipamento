@@ -138,33 +138,30 @@ app.get('/api/equipamentos/ultima-data', async (req, res) => {
   }
 });
 
-app.get("/api/equipamentos/export", async (req, res) => {
+app.get('/api/equipamentos/export', async (req, res) => {
   try {
-    const { data_atividade, equipamento } = req.query;
-    let filtered = [...dados];
+    // Buscar os dados já filtrados
+    const data = await consultarEquipamentos(req.query, false);
 
-    if (data_atividade) {
-      filtered = filtered.filter((item) => item.data_atividade === data_atividade);
-    }
-
-    if (equipamento) {
-      filtered = filtered.filter((item) => item.equipe === equipamento);
-    }
-
-    const worksheet = XLSX.utils.json_to_sheet(filtered);
+    // Criar a planilha
+    const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
 
+    // Converter para buffer
     const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "buffer" });
 
+    // Cabeçalhos para download
     res.setHeader("Content-Disposition", "attachment; filename=exportacao.xlsx");
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
+    // Enviar o arquivo
     return res.send(buffer);
   } catch (error) {
     console.error("Erro ao exportar:", error);
     res.status(500).json({ error: "Erro ao exportar dados" });
   }
 });
+
 
 app.listen(port, () => console.log(`Servidor rodando na porta ${port}`));
