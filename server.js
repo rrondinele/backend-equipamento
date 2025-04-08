@@ -2,6 +2,7 @@
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
+const XLSX = require("xlsx");
 require('dotenv').config();
 
 const app = express();
@@ -134,6 +135,35 @@ app.get('/api/equipamentos/ultima-data', async (req, res) => {
   } catch (err) {
     console.error('Erro ao obter última data:', err);
     res.status(500).json({ error: 'Erro ao obter última data' });
+  }
+});
+
+app.get("/api/equipamentos/export", async (req, res) => {
+  try {
+    const { data_atividade, equipamento } = req.query;
+    let filtered = [...dados];
+
+    if (data_atividade) {
+      filtered = filtered.filter((item) => item.data_atividade === data_atividade);
+    }
+
+    if (equipamento) {
+      filtered = filtered.filter((item) => item.equipe === equipamento);
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(filtered);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
+
+    const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "buffer" });
+
+    res.setHeader("Content-Disposition", "attachment; filename=exportacao.xlsx");
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+    return res.send(buffer);
+  } catch (error) {
+    console.error("Erro ao exportar:", error);
+    res.status(500).json({ error: "Erro ao exportar dados" });
   }
 });
 
