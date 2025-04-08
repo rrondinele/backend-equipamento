@@ -77,16 +77,24 @@ app.get('/api/tables', async (req, res) => {
   }
 });
 
-const consultarEquipamentos = async (filtros, isCount = false) => {
+const consultarEquipamentos = async (filtros, isCount = false, limite = null) => {
   const pool = await sql.connect(config);
+
+  let topClause = '';
+  if (!isCount && limite) {
+    topClause = `TOP ${limite}`;
+  }
+
   const query = {
-    sql: isCount ?
-      'SELECT COUNT(*) AS count FROM dbo.vw_equipe_removido WHERE 1=1' :
-      'SELECT [Instalação], [Nota], [Cliente], [Texto breve para o code], [Alavanca], ' +
-      'CONVERT(VARCHAR, [Data Conclusão], 120) AS [Data Conclusão], ' +
-      '[Equipamento Removido], [Material Removido], [Descrição Mat. Removido], [Status Equip. Removido], ' +
-      '[Equipamento Instalado], [Material Instalado], [Descrição Mat. Instalado], [Status Equip. Instalado] ' +
-      'FROM dbo.vw_equipe_removido WHERE 1=1',
+    sql: isCount
+      ? 'SELECT COUNT(*) AS count FROM dbo.vw_equipe_removido WHERE 1=1'
+      : `
+        SELECT ${topClause}
+          [Instalação], [Nota], [Cliente], [Texto breve para o code], [Alavanca],
+          CONVERT(VARCHAR, [Data Conclusão], 120) AS [Data Conclusão],
+          [Equipamento Removido], [Material Removido], [Descrição Mat. Removido], [Status Equip. Removido],
+          [Equipamento Instalado], [Material Instalado], [Descrição Mat. Instalado], [Status Equip. Instalado]
+        FROM dbo.vw_equipe_removido WHERE 1=1`,
     inputs: []
   };
 
@@ -110,15 +118,17 @@ const consultarEquipamentos = async (filtros, isCount = false) => {
   return result.recordset;
 };
 
+
 app.get('/api/equipamentos', async (req, res) => {
   try {
-    const data = await consultarEquipamentos(req.query, false);
+    const data = await consultarEquipamentos(req.query, false, 20); // <- aqui limitando para 20
     res.json(data);
   } catch (err) {
     console.error('Erro completo na consulta:', err);
     res.status(500).json({ error: 'Erro ao consultar equipamentos' });
   }
 });
+
 
 app.get('/api/equipamentos/count', async (req, res) => {
   try {
