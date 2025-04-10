@@ -154,21 +154,13 @@ app.get('/api/equipamentos/ultima-data', async (req, res) => {
 app.get('/api/equipamentos/export', async (req, res) => {
   try {
     const data = await consultarEquipamentos(req.query, false);
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
-
-    const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "buffer" });
-
-    res.setHeader("Content-Disposition", "attachment; filename=exportacao.xlsx");
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-
-    res.send(buffer);
+    res.json(data); // ← envia os dados em JSON puro
   } catch (error) {
     console.error("Erro ao exportar:", error);
     res.status(500).json({ error: "Erro ao exportar dados" });
   }
 });
+
+
 
 app.listen(port, () => console.log(`Servidor rodando na porta ${port}`));
