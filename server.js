@@ -5,8 +5,6 @@ const cors = require('cors');
 const XLSX = require('xlsx');
 require('dotenv').config();
 
-
-
 const app = express();
 const port = process.env.PORT || 3001;
 
@@ -118,7 +116,6 @@ const consultarEquipamentos = async (filtros, isCount = false, limite = null) =>
   return result.recordset;
 };
 
-
 app.get('/api/equipamentos', async (req, res) => {
   try {
     const data = await consultarEquipamentos(req.query, false, 20); // <- aqui limitando para 20
@@ -128,7 +125,6 @@ app.get('/api/equipamentos', async (req, res) => {
     res.status(500).json({ error: 'Erro ao consultar equipamentos' });
   }
 });
-
 
 app.get('/api/equipamentos/count', async (req, res) => {
   try {
@@ -161,6 +157,65 @@ app.get('/api/equipamentos/export', async (req, res) => {
   }
 });
 
+// OFS_Materiais
+const consultarMateriais = async (filtros, isCount = false, limite = null) => {
+  const pool = await sql.connect(config);
 
+  let topClause = '';
+  if (!isCount && limite) {
+    topClause = `TOP ${limite}`;
+  }
+
+  const query = {
+    sql: isCount
+      ? 'SELECT COUNT(*) AS count FROM dbo.vw_ofs_material WHERE 1=1'
+      : `
+        SELECT ${topClause}
+          [Data], [Nota], [Descrição], [Acao],
+          [Status do Usuário], [Tipo de nota], [Instalação],
+          [Zona], [Lote], [Descricao], [Quantidade], [Serial], [Base Operacional]
+        FROM dbo.vw_ofs_material WHERE 1=1`,
+    inputs: []
+  };
+
+  if (filtros.dataInicial && filtros.dataFinal) {
+    query.sql += ' AND [Data] BETWEEN @dataInicial AND @dataFinal';
+    query.inputs.push({ key: 'dataInicial', value: filtros.dataInicial, type: sql.Date });
+    query.inputs.push({ key: 'dataFinal', value: filtros.dataFinal, type: sql.Date });
+  }
+
+  aplicarFiltros(query, filtros, [
+    { nome: 'nota', coluna: 'Nota' },
+    { nome: 'equipamento', coluna: 'Serial' }, 
+  ]);
+
+  const request = pool.request();
+  query.inputs.forEach(({ key, value, type }) => {
+    request.input(key, type || sql.NVarChar, value);
+  });
+
+  const result = await request.query(query.sql);
+  return result.recordset;
+};
+
+app.get('/api/materiais', async (req, res) => {
+  try {
+    const data = await consultarMateriais(req.query, false, 20);
+    res.json(data);
+  } catch (err) {
+    console.error('Erro ao consultar materiais:', err);
+    res.status(500).json({ error: 'Erro ao consultar materiais' });
+  }
+});
+
+app.get('/api/materiais/count', async (req, res) => {
+  try {
+    const data = await consultarMateriais(req.query, true);
+    res.json({ count: data[0]?.count || 0 });
+  } catch (err) {
+    console.error('Erro ao contar materiais:', err);
+    res.status(500).json({ error: 'Erro ao contar materiais' });
+  }
+});
 
 app.listen(port, () => console.log(`Servidor rodando na porta ${port}`));
