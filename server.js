@@ -171,7 +171,7 @@ const consultarMateriais = async (filtros, isCount = false, limite = null) => {
       ? 'SELECT COUNT(*) AS count FROM dbo.vw_ofs_material WHERE 1=1'
       : `
         SELECT ${topClause}
-          [Data], [Nota], [Descrição], [Acao],
+          [Data], [Nota], [Texto Breve], [Acao],
           [Status do Usuário], [Tipo de nota], [Instalação],
           [Zona], [Lote], [Descricao], [Quantidade], [Serial], [Base Operacional]
         FROM dbo.vw_ofs_material WHERE 1=1`,
