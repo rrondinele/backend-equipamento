@@ -34,8 +34,10 @@ const config = {
 const aplicarFiltros = (query, filtros, campos) => {
   campos.forEach(({ nome, coluna }) => {
     const valor = filtros[nome];
-    if (valor) {
-      const lista = valor.split(',').map(v => v.trim());
+    if (valor && valor !== 'Todos') {
+      const lista = valor.split(',').map(v => v.trim()).filter(v => v && v !== 'Todos');
+      if (lista.length === 0) return; // ignora filtro vazio
+
       if (lista.length === 1) {
         query.sql += ` AND [${coluna}] = @${nome}`;
         query.inputs.push({ key: nome, value: lista[0] });
@@ -187,6 +189,7 @@ const consultarMateriais = async (filtros, isCount = false, limite = null) => {
   aplicarFiltros(query, filtros, [
     { nome: 'nota', coluna: 'Nota' },
     { nome: 'equipamento', coluna: 'Serial' }, 
+    { nome: 'status', coluna: 'Acao' }
   ]);
 
   const request = pool.request();
