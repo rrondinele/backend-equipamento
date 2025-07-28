@@ -162,7 +162,7 @@ const consultarMateriais = async (filtros, isCount = false, limite = null) => {
   const pool = await sql.connect(config);
 
   let topClause = '';
-  if (!isCount && limite) {
+  if (!isCount && limite) { // Só aplica TOP se limite for fornecido
     topClause = `TOP ${limite}`;
   }
 
@@ -205,6 +205,17 @@ app.get('/api/materiais', async (req, res) => {
   } catch (err) {
     console.error('Erro ao consultar materiais:', err);
     res.status(500).json({ error: 'Erro ao consultar materiais' });
+  }
+});
+
+app.get('/api/materiais/export', async (req, res) => {
+  try {
+    // Remove qualquer limite para a exportação
+    const data = await consultarMateriais(req.query, false); // Sem o parâmetro limite
+    res.json(data);
+  } catch (err) {
+    console.error('Erro ao exportar materiais:', err);
+    res.status(500).json({ error: 'Erro ao exportar materiais' });
   }
 });
 
