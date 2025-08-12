@@ -28,7 +28,7 @@ const config = {
     trustServerCertificate: true,
   },
   connectionTimeout: 120000, 
-  requestTimeout: 12000,    
+  requestTimeout: 120000,    
   pool: {
     max: 10,
     min: 0,
