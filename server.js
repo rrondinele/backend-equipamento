@@ -27,8 +27,13 @@ const config = {
     encrypt: true,
     trustServerCertificate: true,
   },
-  connectionTimeout: 90000,
-  requestTimeout: 90000
+  connectionTimeout: 120000, 
+  requestTimeout: 12000,    
+  pool: {
+    max: 10,
+    min: 0,
+    idleTimeoutMillis: 30000
+  }
 };
 
 const aplicarFiltros = (query, filtros, campos) => {
