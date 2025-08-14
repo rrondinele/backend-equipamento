@@ -26,13 +26,16 @@ const config = {
   options: {
     encrypt: true,
     trustServerCertificate: true,
+    enableArithAbort: true, // Adicionado para evitar warnings
+    connectTimeout: 30000,  // 30s para estabelecer conexão
+    requestTimeout: 180000, // 180s (3min) para execução de queries
+    cancelTimeout: 5000,    // 5s para cancelamento
   },
-  connectionTimeout: 120000, 
-  requestTimeout: 120000,    
   pool: {
-    max: 10,
-    min: 0,
-    idleTimeoutMillis: 30000
+    max: 15,               // Aumentado para conexões concorrentes
+    min: 1,                // Conexão mínima sempre ativa
+    idleTimeoutMillis: 30000,
+    acquireTimeoutMillis: 60000 // 60s para obter conexão do pool
   }
 };
 
