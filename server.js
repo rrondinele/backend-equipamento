@@ -28,7 +28,7 @@ const config = {
     trustServerCertificate: true,
     enableArithAbort: true, // Adicionado para evitar warnings
     connectTimeout: 30000,  // 30s para estabelecer conexão
-    requestTimeout: 180000, // 180s (3min) para execução de queries
+    requestTimeout: 300000, // 180s (3min) para execução de queries
     cancelTimeout: 5000,    // 5s para cancelamento
   },
   pool: {
